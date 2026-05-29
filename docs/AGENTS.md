@@ -1,6 +1,6 @@
 # GSD Agent Reference
 
-> Full role cards for 21 primary agents plus concise stubs for 12 advanced/specialized agents (33 shipped agents total). The `agents/` directory and [`docs/INVENTORY.md`](INVENTORY.md) are the authoritative roster; see [Architecture](ARCHITECTURE.md) for context.
+> Full role cards for 21 primary agents plus concise stubs for 17 advanced/specialized agents (38 shipped agents total). The `agents/` directory and [`docs/INVENTORY.md`](INVENTORY.md) are the authoritative roster; see [Architecture](ARCHITECTURE.md) for context.
 
 ---
 
@@ -10,7 +10,7 @@ GSD uses a multi-agent architecture where thin orchestrators (workflow files) sp
 
 ### Agent Categories
 
-> The table below covers the **21 primary agents** detailed in this section. Twelve additional shipped agents (pattern-mapper, debug-session-manager, code-reviewer, code-fixer, ai-researcher, domain-researcher, eval-planner, eval-auditor, framework-selector, intel-updater, doc-classifier, doc-synthesizer) have concise stubs in the [Advanced and Specialized Agents](#advanced-and-specialized-agents) section below. For the authoritative 33-agent roster, see [`docs/INVENTORY.md`](INVENTORY.md) and the `agents/` directory.
+> The table below covers the **21 primary agents** detailed in this section. Seventeen additional shipped agents (pattern-mapper, debug-session-manager, code-reviewer, code-fixer, ai-researcher, domain-researcher, eval-planner, eval-auditor, framework-selector, intel-updater, doc-classifier, doc-synthesizer, gate-analyzer, executor-security, executor-ui, executor-perf, executor-debug) have concise stubs in the [Advanced and Specialized Agents](#advanced-and-specialized-agents) section below. For the authoritative 38-agent roster, see [`docs/INVENTORY.md`](INVENTORY.md) and the `agents/` directory.
 
 | Category | Count | Agents |
 |----------|-------|--------|
@@ -19,7 +19,7 @@ GSD uses a multi-agent architecture where thin orchestrators (workflow files) sp
 | Synthesizers | 1 | research-synthesizer |
 | Planners | 1 | planner |
 | Roadmappers | 1 | roadmapper |
-| Executors | 1 | executor |
+| Executors | 5 | executor, executor-security, executor-ui, executor-perf, executor-debug |
 | Checkers | 3 | plan-checker, integration-checker, ui-checker |
 | Verifiers | 1 | verifier |
 | Auditors | 3 | nyquist-auditor, ui-auditor, security-auditor |
@@ -720,9 +720,69 @@ Twelve additional agents ship under `agents/gsd-*.md` and are used by specialty 
 
 ---
 
+### gsd-executor-security
+
+**Role:** Security-specialist plan executor. Mirrors the full `gsd-executor` contract and adds an OWASP/auth/secrets/input-validation lens applied to every task. Auto-adds missing security controls (auth checks, rate limiting, CORS, input validation) via deviation Rule 2. Auto-loads `security-review` and `ciso-advisor` project skills when available.
+
+| Property | Value |
+|----------|-------|
+| **Spawned by** | `/gsd-execute-phase` (when plan frontmatter `executor_kind: security`) |
+| **Parallelism** | Per-plan (same as base executor) |
+| **Tools** | Read, Write, Edit, Bash, Grep, Glob, mcp (context7) |
+| **Model (balanced)** | Inherits from orchestrator |
+| **Color** | Red |
+| **Produces** | Same artifacts as `gsd-executor` plus `## Security Controls Applied` section in SUMMARY.md |
+
+---
+
+### gsd-executor-ui
+
+**Role:** UI/frontend-specialist plan executor. Mirrors the full `gsd-executor` contract and adds an a11y/design-system/responsive lens applied to every task. Auto-adds missing WCAG controls, loading/error/empty states, and responsive handling via deviation Rule 2. Auto-loads `ui-ux-pro-max` and `frontend-design` project skills when available.
+
+| Property | Value |
+|----------|-------|
+| **Spawned by** | `/gsd-execute-phase` (when plan frontmatter `executor_kind: ui`) |
+| **Parallelism** | Per-plan (same as base executor) |
+| **Tools** | Read, Write, Edit, Bash, Grep, Glob, mcp (context7) |
+| **Model (balanced)** | Inherits from orchestrator |
+| **Color** | Cyan |
+| **Produces** | Same artifacts as `gsd-executor` plus `## UI/A11y Controls Applied` section in SUMMARY.md |
+
+---
+
+### gsd-executor-perf
+
+**Role:** Performance-specialist plan executor. Mirrors the full `gsd-executor` contract and adds a hot-path/query/bundle/memory lens applied to every task. Auto-adds missing DB indexes, pagination, parallel async patterns, and resource cleanup via deviation Rule 2.
+
+| Property | Value |
+|----------|-------|
+| **Spawned by** | `/gsd-execute-phase` (when plan frontmatter `executor_kind: perf`) |
+| **Parallelism** | Per-plan (same as base executor) |
+| **Tools** | Read, Write, Edit, Bash, Grep, Glob, mcp (context7) |
+| **Model (balanced)** | Inherits from orchestrator |
+| **Color** | Yellow |
+| **Produces** | Same artifacts as `gsd-executor` plus `## Performance Optimisations Applied` section in SUMMARY.md |
+
+---
+
+### gsd-executor-debug
+
+**Role:** Debug-specialist plan executor. Mirrors the full `gsd-executor` contract and enforces a repro-first/root-cause/regression-test discipline on every fix task. Auto-adds missing regression tests and structured log lines at failure sites via deviation Rule 2. Auto-loads `systematic-debugging` project skill when available.
+
+| Property | Value |
+|----------|-------|
+| **Spawned by** | `/gsd-execute-phase` (when plan frontmatter `executor_kind: debug`) |
+| **Parallelism** | Per-plan (same as base executor) |
+| **Tools** | Read, Write, Edit, Bash, Grep, Glob, mcp (context7) |
+| **Model (balanced)** | Inherits from orchestrator |
+| **Color** | Orange |
+| **Produces** | Same artifacts as `gsd-executor` plus `## Root Causes Fixed` section in SUMMARY.md |
+
+---
+
 ## Agent Tool Permissions Summary
 
-> **Scope:** this table covers the 21 primary agents only. The 12 advanced/specialized agents listed above carry their own tool surfaces in their `agents/gsd-*.md` frontmatter (summarized in the per-agent stubs above and in [`docs/INVENTORY.md`](INVENTORY.md)).
+> **Scope:** this table covers the 21 primary agents only. The 16 advanced/specialized agents listed above carry their own tool surfaces in their `agents/gsd-*.md` frontmatter (summarized in the per-agent stubs above and in [`docs/INVENTORY.md`](INVENTORY.md)).
 
 | Agent | Read | Write | Edit | Bash | Grep | Glob | WebSearch | WebFetch | MCP |
 |-------|------|-------|------|------|------|------|-----------|----------|-----|

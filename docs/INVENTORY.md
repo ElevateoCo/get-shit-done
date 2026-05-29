@@ -10,7 +10,7 @@
 
 ---
 
-## Agents (33 shipped)
+## Agents (38 shipped)
 
 Full roster at `agents/gsd-*.md`. The "Primary doc" column flags whether [`docs/AGENTS.md`](AGENTS.md) carries a full role card (*primary*), a short stub in the "Advanced and Specialized Agents" section (*advanced stub*), or no coverage (*inventory only*).
 
@@ -25,6 +25,11 @@ Full roster at `agents/gsd-*.md`. The "Primary doc" column flags whether [`docs/
 | gsd-planner | Creates executable phase plans with task breakdown and goal-backward verification. | `/gsd-plan-phase`, `/gsd-quick` | primary |
 | gsd-roadmapper | Creates project roadmaps with phase breakdown and requirement mapping. | `/gsd-new-project` | primary |
 | gsd-executor | Executes GSD plans with atomic commits and deviation handling. | `/gsd-execute-phase`, `/gsd-quick` | primary |
+| gsd-gate-analyzer | Scans phase planning artifacts and identifies tasks that only a human can perform (API key creation, OAuth registration, DNS delegation, etc.); writes HUMAN-GATES.md for the planner and executor. | `/gsd-plan-phase` (step 5.9) | advanced stub |
+| gsd-executor-security | Security-specialist executor: applies OWASP/auth/secrets/input-validation lens to every task; auto-adds missing security controls via Rule 2. | `/gsd-execute-phase` (when plan `executor_kind: security`) | advanced stub |
+| gsd-executor-ui | UI/frontend-specialist executor: applies a11y/design-system/responsive lens; auto-adds missing loading/error states and WCAG controls via Rule 2. | `/gsd-execute-phase` (when plan `executor_kind: ui`) | advanced stub |
+| gsd-executor-perf | Performance-specialist executor: applies hot-path/query/bundle/memory lens; auto-adds missing indexes, pagination, and resource cleanup via Rule 2. | `/gsd-execute-phase` (when plan `executor_kind: perf`) | advanced stub |
+| gsd-executor-debug | Debug-specialist executor: applies repro-first/root-cause/regression-test discipline; auto-adds missing regression tests and structured log lines via Rule 2. | `/gsd-execute-phase` (when plan `executor_kind: debug`) | advanced stub |
 | gsd-plan-checker | Verifies plans will achieve phase goals (8 verification dimensions). | `/gsd-plan-phase` (verification loop) | primary |
 | gsd-integration-checker | Verifies cross-phase integration and end-to-end flows. | `/gsd-audit-milestone` | primary |
 | gsd-ui-checker | Validates UI-SPEC.md design contracts against quality dimensions. | `/gsd-ui-phase` (validation loop) | primary |
@@ -50,7 +55,7 @@ Full roster at `agents/gsd-*.md`. The "Primary doc" column flags whether [`docs/
 | gsd-doc-classifier | Classifies a single planning document as ADR, PRD, SPEC, DOC, or UNKNOWN; spawned in parallel to process the doc corpus. | `/gsd-ingest-docs` | advanced stub |
 | gsd-doc-synthesizer | Synthesizes classified planning docs into a single consolidated context with precedence rules, cycle detection, and three-bucket conflicts report. | `/gsd-ingest-docs` | advanced stub |
 
-**Coverage note.** `docs/AGENTS.md` gives full role cards for 21 primary agents plus concise stubs for the 12 advanced agents. The Agent Tool Permissions Summary in that file covers only the primary 21 agents; the advanced agents' tool lists are captured in their per-agent frontmatter in `agents/gsd-*.md`.
+**Coverage note.** `docs/AGENTS.md` gives full role cards for 21 primary agents plus concise stubs for the 17 advanced agents. The Agent Tool Permissions Summary in that file covers only the primary 21 agents; the advanced agents' tool lists are captured in their per-agent frontmatter in `agents/gsd-*.md`.
 
 ---
 
