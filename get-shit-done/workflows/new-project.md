@@ -750,6 +750,24 @@ Config changes are saved locally — no commit needed since `commit_docs` is `fa
 
 Use models from init: `researcher_model`, `synthesizer_model`, `roadmapper_model`.
 
+## 5.8. Capability discovery (claude-stack) — surface what we already have
+
+Before research and roadmap, query the claude-stack catalog so the project reuses existing skills/tools/agents/boilerplates instead of reinventing (route, don't memorize). Run a semantic search on the project goal:
+
+```bash
+python3 ~/Work/Github/claude-stack/catalog_cli.py search "<project goal + key domains>" -n 8 2>/dev/null
+# narrow by kind: --kind skill   --kind boilerplate (start-from)   --kind mcp,tool
+```
+
+Returns compact JSON (id, kind, domains, what_it_is, when_to_use, uses, wins, similarity). Surface to the user + feed the roadmap:
+- **skills** → invoke during execution instead of hand-rolling
+- **boilerplates/templates** → start from these (don't scaffold from zero)
+- **tools/mcp/agents** → wire via `/gsd:tool-setup`
+- If nothing fits and the project needs a capability we lack → flag for **stack-scout**, or note the gap.
+
+Log selections so the catalog learns: `python3 ~/Work/Github/claude-stack/catalog_cli.py log <id> --actor <you> --context gsd:new-project --project <name> --outcome adopted`.
+(Catalog unreachable / offline → skip this step, continue.)
+
 ## 6. Research Decision
 
 **If auto mode:** Default to "Research first" without asking.
