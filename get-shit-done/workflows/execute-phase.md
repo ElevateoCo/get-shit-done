@@ -766,7 +766,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    **Sequential mode** (`USE_WORKTREES_FOR_PLAN` is `false` — either project-level `USE_WORKTREES=false`, or per-plan submodule intersection forced it false in step 2.5):
 
-   Omit `isolation="worktree"` from the Agent call. Replace the `<parallel_execution>` block with:
+   Omit `isolation="worktree"` from the Agent call but **keep `subagent_type="{EXECUTOR_AGENT}"`** — the specialist selection computed above applies equally in sequential mode. Replace the `<parallel_execution>` block with:
 
    ```
        <sequential_execution>
@@ -774,6 +774,16 @@ increases monotonically across waves. `{status}` is `complete` (success),
        Use normal git commits (with hooks). Do NOT use --no-verify.
        REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
        </sequential_execution>
+   ```
+
+   The sequential mode Agent call:
+   ```text
+   Agent(
+     subagent_type="{EXECUTOR_AGENT}",
+     description="Execute plan {plan_number} of phase {phase_number} (sequential mode)",
+     model="{executor_model}",  # omit when executor_model == "inherit"
+     prompt="..."
+   )
    ```
 
    The sequential mode Agent prompt uses the same structure as worktree mode but with these differences in success_criteria — since there is only one agent writing at a time, there are no shared-file conflicts:

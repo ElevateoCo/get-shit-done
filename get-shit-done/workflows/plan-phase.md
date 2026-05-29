@@ -1046,15 +1046,17 @@ Output consumed by /gsd:execute-phase. Plans need:
 </downstream_consumer>
 
 <executor_kind_heuristic>
-Every PLAN.md frontmatter MUST include an `executor_kind` field. Choose the value using this heuristic (first match wins):
+Every PLAN.md frontmatter MUST include an `executor_kind` field. Choose the value using this heuristic (**first match wins** — order matters):
 
 | Signal in plan scope / phase goal | executor_kind |
 |---|---|
+| bugfix, regression, repro, failing test, crash, stack trace, root cause, broken behavior | `debug` |
 | auth, payments, RLS, API keys, secrets, OWASP, input validation, OAuth, permission checks, CVE, CSRF, rate-limit on public routes | `security` |
 | components, styling, CSS, a11y, WCAG, design tokens, responsive, UI, frontend, React/Vue/Svelte templates, Tailwind, animations | `ui` |
 | queries, hot-path, N+1, indexes, bundle size, caching, pagination, memory leak, async bottleneck, Lighthouse, performance budget | `perf` |
-| bugfix, regression, repro, failing test, crash, stack trace, root cause, broken behavior | `debug` |
 | anything else | `default` |
+
+**Precedence rationale:** `debug` is first because a plan that describes "fix auth crash with failing test" is a debugging task (reproduce → root-cause → fix → regression test) even if auth keywords are present. Security hardening without an existing failure goes to `security`; adding auth to a new route for the first time goes to `security`. When in doubt use `default`.
 
 **When in doubt, use `default`.** The specialist executors add domain rigor on top of the base executor — they are never slower or less safe, but they are not needed for straightforward feature work.
 
