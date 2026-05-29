@@ -103,9 +103,29 @@ else
   warn "--no-backup: skipping pre-install backup"
 fi
 
+# ---------- 2.7 build SDK + hooks (git-clone installs need generated artifacts) ----------
+# The SDK (sdk/dist/cli.js — powers /gsd-* commands) and built hooks are generated at
+# npm-publish time, NOT committed. Installing from this git clone needs them built first.
+if [ ! -f "$GSD_FORK_DIR/sdk/dist/cli.js" ] || [ "${FORCE_BUILD:-0}" = 1 ]; then
+  log "building GSD SDK + hooks (required when installing from a git clone)"
+  if [ "$DRY_RUN" = 1 ]; then
+    printf '  [dry-run] (cd %s && npm install && npm run build:hooks && npm run build:sdk)\n' "$GSD_FORK_DIR"
+  else
+    ( cd "$GSD_FORK_DIR" && npm install --no-fund --no-audit && npm run build:hooks && npm run build:sdk ) \
+      || { err "SDK/hooks build failed — run: cd $GSD_FORK_DIR && npm install && npm run build:hooks && npm run build:sdk"; exit 1; }
+  fi
+  ok "SDK + hooks built"
+else
+  log "SDK already built (set FORCE_BUILD=1 to rebuild)"
+fi
+
 # ---------- 3. run the fork's official installer ----------
 log "installing fork into $CLAUDE_DIR (global, Claude Code)"
-warn "first sync from the old 1.22.4 install may prompt for migration — answer interactively"
+# First sync from an old install runs a one-time baseline migration that asks keep/remove
+# for stale GSD files. Non-interactive (this script) → set GSD_INSTALLER_MIGRATION_RESOLVE.
+# Default to 'remove' (clears stale orphans); override with GSD_INSTALLER_MIGRATION_RESOLVE=keep.
+export GSD_INSTALLER_MIGRATION_RESOLVE="${GSD_INSTALLER_MIGRATION_RESOLVE:-remove}"
+log "installer migration resolve = $GSD_INSTALLER_MIGRATION_RESOLVE (one-time; override with =keep)"
 run node "$INSTALLER" --global --claude --config-dir "$CLAUDE_DIR"
 ok "installer finished"
 
