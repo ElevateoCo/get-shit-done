@@ -341,6 +341,85 @@ Report:
 ```
 </step>
 
+<step name="pre_execution_gate_check">
+**Human Gate Check — display pre-execution gates before spawning any wave agents.**
+
+This step runs after plan discovery and before any execution (cross-AI or normal waves). It ensures the human sees all required up-front actions before the autonomous chain starts work that depends on them.
+
+```bash
+GATES_PATH="${PHASE_DIR}/${PADDED_PHASE}-HUMAN-GATES.md"
+```
+
+**If `GATES_PATH` does not exist:** Skip silently to cross_ai_delegation. No gate map means gate analysis was skipped or not yet run — execution proceeds normally.
+
+**If `GATES_PATH` exists:**
+
+1. Read the frontmatter:
+   ```bash
+   GATES_STATUS=$(grep "^status:" "${GATES_PATH}" | head -1 | cut -d: -f2 | tr -d ' ')
+   GATES_PRE=$(grep "^gates_pre:" "${GATES_PATH}" | head -1 | cut -d: -f2 | tr -d ' ')
+   ```
+
+2. **If `GATES_STATUS` is `none` OR `GATES_PRE` is `0` or empty:** No pre-execution gates — skip display, proceed to cross_ai_delegation.
+
+3. **If `GATES_PRE` > 0:** Check for unchecked pre-execution gates:
+   ```bash
+   UNCHECKED_PRE=$(awk '/^## Pre-Execution Gates/,/^## Mid-Execution Gates/' "${GATES_PATH}" | grep "^- \[ \] GATE-" | wc -l | tr -d ' ')
+   ```
+
+4. **If `UNCHECKED_PRE` is `0`:** All pre-execution gates are already checked — proceed to cross_ai_delegation.
+
+5. **If `UNCHECKED_PRE` > 0:** Display the gates and PAUSE before spawning any agents:
+
+   ```
+   ╔═══════════════════════════════════════════════════════╗
+   ║  HUMAN GATES: Action Required Before Execution        ║
+   ╚═══════════════════════════════════════════════════════╝
+
+   Phase {N} has {UNCHECKED_PRE} pre-execution gate(s) that must be completed
+   before wave agents are spawned. Complete these now:
+
+   {For each unchecked GATE-* in the Pre-Execution section:}
+   {GATE-ID}: {description} ({estimated time})
+     → {Instructions line}
+     → Unblocks: {Unblocks line}
+
+   ────────────────────────────────────────────────────────
+   Type each gate ID when done (e.g., gate-01-done) or type
+   "skip-gates" to proceed without completing them (not recommended).
+   Full gate map: {GATES_PATH}
+   ```
+
+6. **Wait for user input.** For each `gate-XX-done` the user types:
+   - Find the corresponding `- [ ] GATE-XX` line in HUMAN-GATES.md
+   - Replace `- [ ]` with `- [x]`
+   - Write the updated HUMAN-GATES.md
+   - Confirm: `✓ GATE-XX marked complete.`
+
+   After each update, re-check `UNCHECKED_PRE`. When all pre-execution gates are checked, display:
+   ```
+   ✓ All pre-execution gates complete — proceeding to execution.
+   ```
+   and continue to cross_ai_delegation.
+
+7. **If user types `"skip-gates"`:** Display warning:
+   ```
+   ⚠ Skipping pre-execution gates. Execution may stall if plans depend on credentials
+     or actions that have not been completed. Gates remain in HUMAN-GATES.md as unchecked.
+   ```
+   Continue to cross_ai_delegation.
+
+**Post-execution gates** are surfaced at the `verification_gate_before_completion` step — they appear before the phase is marked complete, alongside the existing verification gate.
+
+Read post-execution gates and surface them at phase completion:
+
+```bash
+UNCHECKED_POST=$(awk '/^## Post-Execution Gates/,/^## Planner Instruction/' "${GATES_PATH}" | grep "^- \[ \] GATE-" | wc -l | tr -d ' ')
+```
+
+Store `UNCHECKED_POST` in context for use in `verification_gate_before_completion`. If `UNCHECKED_POST > 0`, that step will display them before marking the phase complete (same display style as pre-execution gates above).
+</step>
+
 <step name="cross_ai_delegation">
 **Optional step 2.5 — Delegate plans to an external AI runtime.**
 
@@ -1602,6 +1681,44 @@ Before marking this phase complete in ROADMAP.md or STATE.md, the orchestrator M
 - If verification cannot run (missing environment, human action required), mark the phase BLOCKED, not complete.
 
 Apply the `verification-before-completion` discipline: the roadmap is updated only when completion is backed by evidence, not by self-assessment.
+
+**Post-Execution Human Gate Check:**
+
+Before calling `update_roadmap`, check for unchecked post-execution gates:
+
+```bash
+GATES_PATH="${PHASE_DIR}/${PADDED_PHASE}-HUMAN-GATES.md"
+if [ -f "$GATES_PATH" ]; then
+  UNCHECKED_POST=$(awk '/^## Post-Execution Gates/,/^## Planner Instruction/' "${GATES_PATH}" | grep "^- \[ \] GATE-" | wc -l | tr -d ' ')
+else
+  UNCHECKED_POST=0
+fi
+```
+
+**If `UNCHECKED_POST` is `0` or `GATES_PATH` does not exist:** Proceed to `update_roadmap` normally.
+
+**If `UNCHECKED_POST` > 0:** Display post-execution gates and request sign-off before marking complete:
+
+```
+╔═══════════════════════════════════════════════════════╗
+║  HUMAN GATES: Sign-off Required Before Phase Complete  ║
+╚═══════════════════════════════════════════════════════╝
+
+Phase {N} has {UNCHECKED_POST} post-execution gate(s) requiring sign-off
+before the phase can be marked complete:
+
+{For each unchecked GATE-* in the Post-Execution section:}
+{GATE-ID}: {description} ({estimated time})
+  → {Scope line}
+
+────────────────────────────────────────────────────────
+Type each gate ID when done (e.g., gate-03-done) or type
+"skip-post-gates" to mark complete without sign-off.
+```
+
+For each `gate-XX-done` the user types: replace `- [ ] GATE-XX` with `- [x] GATE-XX` in HUMAN-GATES.md and confirm. When all post-execution gates are checked, proceed to `update_roadmap`.
+
+**If user types `"skip-post-gates"`:** Display warning and proceed to `update_roadmap`.
 </step>
 
 <step name="update_roadmap">

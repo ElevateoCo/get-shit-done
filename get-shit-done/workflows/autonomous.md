@@ -319,6 +319,65 @@ UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
 
 **If `HAS_UI` is 1 (no frontend indicators) OR `UI_SPEC_FILE` is not empty (UI-SPEC already exists) OR `UI_PHASE_CFG` is `false`:** Skip silently to 3b.
 
+**3a.7. Human Gate Check (Autonomous Pre-Phase)**
+
+Before calling plan-phase or execute-phase for this phase, check whether a HUMAN-GATES.md already exists with unchecked pre-execution gates. This is the autonomous mode's single point of human-involvement awareness — it shows the full gate picture up front so the run never stalls mid-wave on a credential or approval step.
+
+```bash
+PHASE_STATE=$(gsd-sdk query init.phase-op ${PHASE_NUM})
+PHASE_DIR=$(_gsd_field "$PHASE_STATE" phase_dir)
+PADDED_PHASE=$(_gsd_field "$PHASE_STATE" padded_phase)
+GATES_PATH="${PHASE_DIR}/${PADDED_PHASE}-HUMAN-GATES.md"
+```
+
+**If `GATES_PATH` does not exist:** Gate analysis has not run yet — it will run inside plan-phase (step 5.9). Skip to 3b.
+
+**If `GATES_PATH` exists:**
+
+```bash
+GATES_STATUS=$(grep "^status:" "${GATES_PATH}" | head -1 | cut -d: -f2 | tr -d ' ')
+GATES_PRE=$(grep "^gates_pre:" "${GATES_PATH}" | head -1 | cut -d: -f2 | tr -d ' ')
+UNCHECKED_PRE=$(awk '/^## Pre-Execution Gates/,/^## Mid-Execution Gates/' "${GATES_PATH}" | grep "^- \[ \] GATE-" | wc -l | tr -d ' ')
+```
+
+**If `GATES_STATUS` is `none` OR `UNCHECKED_PRE` is `0`:** No blocking gates — skip to 3b.
+
+**If `UNCHECKED_PRE` > 0:** PAUSE the autonomous chain. Display the gates to the user:
+
+```
+╔═══════════════════════════════════════════════════════╗
+║  AUTONOMOUS PAUSED: Human Gates for Phase {N}          ║
+╚═══════════════════════════════════════════════════════╝
+
+Phase {N} ({PHASE_NAME}) requires {UNCHECKED_PRE} human action(s) before
+autonomous execution can proceed. Completing these now prevents mid-wave stalls.
+
+{For each unchecked GATE-* in the Pre-Execution section:}
+{GATE-ID}: {description} ({estimated time})
+  → {Instructions line}
+  → Unblocks: {Unblocks line}
+
+────────────────────────────────────────────────────────
+Type each gate ID when done (e.g., gate-01-done), then type
+"resume-phase-{N}" to continue autonomous execution.
+Type "skip-phase-{N}-gates" to proceed without completing them.
+Full gate map: {GATES_PATH}
+```
+
+For each `gate-XX-done` the user types: replace `- [ ] GATE-XX` with `- [x] GATE-XX` in HUMAN-GATES.md and confirm. Commit the updated file:
+
+```bash
+gsd-sdk query commit "docs(${PADDED_PHASE}): mark GATE-XX complete (autonomous)" --files "${GATES_PATH}"
+```
+
+When the user types `resume-phase-{N}`: re-check `UNCHECKED_PRE`. If still > 0, display remaining gates. If 0, display `✓ All pre-execution gates complete — resuming autonomous execution for Phase ${PHASE_NUM}.` and proceed to 3b.
+
+**If user types `"skip-phase-{N}-gates"`:** Display warning and proceed to 3b:
+```
+⚠ Skipping pre-execution gates for Phase ${PHASE_NUM}. Execution may stall if plans
+  depend on credentials or approvals that have not been completed.
+```
+
 **3b. Plan**
 
 **If `INTERACTIVE` is set:** Dispatch plan as a background agent to keep the main context lean. While plan runs, the workflow can immediately start discussing the next phase (see step 4).
