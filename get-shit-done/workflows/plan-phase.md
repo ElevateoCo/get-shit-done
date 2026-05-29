@@ -1733,7 +1733,118 @@ gsd-sdk query commit "docs(${PADDED_PHASE}): create phase plan" --files "${PHASE
 
 This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
 
-## 13e. Post-Planning Gap Analysis
+## 13e. GitHub Tracking — Create Phase Issue (opt-in)
+
+**Skip if `workflow.github_tracking` is not `true`.**
+
+```bash
+GH_TRACKING=$(gsd-sdk query config-get workflow.github_tracking 2>/dev/null || echo "false")
+```
+
+**If `GH_TRACKING` is not `true`:** Skip silently to step 13f. No `gh` calls, no network, zero behavior change.
+
+**If `GH_TRACKING` is `true`:** Attempt to create a GitHub issue for this phase. All `gh` operations are non-blocking — if any step fails (no `gh` CLI, no GitHub remote, API error, missing permission), log a warning and continue. Never abort the plan-phase workflow due to a tracking failure.
+
+### 1. Guard: verify gh CLI and GitHub remote exist
+
+```bash
+if ! command -v gh >/dev/null 2>&1; then
+  echo "⚠ github_tracking: gh CLI not found — skipping issue creation" >&2
+  GH_TRACKING="false"
+fi
+if [ "$GH_TRACKING" = "true" ]; then
+  GH_REMOTE=$(git remote get-url origin 2>/dev/null || true)
+  if ! echo "$GH_REMOTE" | grep -qE '(github\.com)'; then
+    echo "⚠ github_tracking: no GitHub remote detected — skipping issue creation" >&2
+    GH_TRACKING="false"
+  fi
+fi
+```
+
+### 2. Load per-project tracking config (optional)
+
+```bash
+if [ "$GH_TRACKING" = "true" ]; then
+  GH_CFG_FILE=".planning/GITHUB.json"
+  GH_LABEL_PHASE="gsd:phase"
+  GH_LABEL_PHASE_N="gsd:phase-${PHASE_NUMBER}"
+  GH_REPO_FLAG=""
+  if [ -f "$GH_CFG_FILE" ] && command -v node >/dev/null 2>&1; then
+    GH_LABEL_PHASE=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.labels&&c.labels.phase||'gsd:phase')}catch(e){process.stdout.write('gsd:phase')}" 2>/dev/null || echo "gsd:phase")
+    GH_REPO_SLUG=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.repo||'')}catch(e){process.stdout.write('')}" 2>/dev/null || true)
+    [ -n "$GH_REPO_SLUG" ] && GH_REPO_FLAG="--repo $GH_REPO_SLUG"
+  fi
+  GH_LABEL_PHASE_N="${GH_LABEL_PHASE}-${PHASE_NUMBER}"
+fi
+```
+
+### 3. Idempotency check — skip if issue already exists for this phase
+
+Uses the per-phase label `gsd:phase-N` (e.g., `gsd:phase-1`) for an exact-match lookup — avoids full-text false positives where "Phase 1:" matches "Phase 10:", "Phase 11:", etc.
+
+```bash
+if [ "$GH_TRACKING" = "true" ]; then
+  EXISTING_ISSUE=$(gh issue list $GH_REPO_FLAG --label "$GH_LABEL_PHASE_N" --json number,title --jq \
+    "[.[] | select(.title == \"Phase ${PHASE_NUMBER}: ${PHASE_NAME}\")] | .[0].number" \
+    2>/dev/null || true)
+
+  if [ -n "$EXISTING_ISSUE" ] && [ "$EXISTING_ISSUE" != "null" ]; then
+    GH_PHASE_ISSUE="$EXISTING_ISSUE"
+    echo "◆ github_tracking: issue #${GH_PHASE_ISSUE} already exists for Phase ${PHASE_NUMBER} — reusing"
+  fi
+fi
+```
+
+### 4. Ensure labels exist (non-blocking)
+
+```bash
+if [ "$GH_TRACKING" = "true" ] && [ -z "${GH_PHASE_ISSUE:-}" ]; then
+  gh label create "$GH_LABEL_PHASE" --color "0075ca" --description "GSD phase tracking" $GH_REPO_FLAG 2>/dev/null || true
+  gh label create "$GH_LABEL_PHASE_N" --color "0075ca" --description "GSD phase ${PHASE_NUMBER} tracking" $GH_REPO_FLAG 2>/dev/null || true
+fi
+```
+
+### 5. Build issue body and create issue
+
+```bash
+if [ "$GH_TRACKING" = "true" ] && [ -z "${GH_PHASE_ISSUE:-}" ]; then
+  PLAN_LIST=$(ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null | while IFS= read -r f; do
+    OBJ=$(grep -m1 '<objective>' "$f" | sed 's/.*<objective>//' | sed 's/<\/objective>.*//' | xargs 2>/dev/null || basename "$f" .md)
+    echo "- $(basename "$f" .md): ${OBJ}"
+  done)
+
+  ISSUE_BODY="## Phase ${PHASE_NUMBER}: ${PHASE_NAME}
+
+**Goal:** ${phase_goal}
+
+### Plans
+${PLAN_LIST}
+
+---
+*Created by GSD github_tracking — roadmap #10*"
+
+  GH_PHASE_ISSUE=$(gh issue create \
+    --title "Phase ${PHASE_NUMBER}: ${PHASE_NAME}" \
+    --body "$ISSUE_BODY" \
+    --label "$GH_LABEL_PHASE" \
+    --label "$GH_LABEL_PHASE_N" \
+    $GH_REPO_FLAG \
+    --json number --jq '.number' 2>/dev/null || true)
+
+  if [ -n "${GH_PHASE_ISSUE:-}" ]; then
+    echo "◆ github_tracking: created issue #${GH_PHASE_ISSUE} for Phase ${PHASE_NUMBER}: ${PHASE_NAME}"
+    gsd-sdk query state-append "## GitHub Tracking
+
+- Phase ${PHASE_NUMBER} issue: #${GH_PHASE_ISSUE}" 2>/dev/null || true
+  else
+    echo "⚠ github_tracking: issue creation failed — continuing without tracking (non-blocking)" >&2
+  fi
+fi
+```
+
+Proceed to step 13f regardless of outcome.
+
+## 13f. Post-Planning Gap Analysis
 
 After all plans are generated, committed, and the Requirements Coverage Gate (§13)
 has run, emit a single unified gap report covering both REQUIREMENTS.md and the
