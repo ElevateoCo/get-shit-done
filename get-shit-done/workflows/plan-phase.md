@@ -756,7 +756,7 @@ Returns compact JSON (id, kind, domains, what_it_is, when_to_use, uses, wins, si
 - **tools/mcp/agents** → wire via `/gsd:tool-setup`
 - If nothing fits well (low similarity) and the phase needs a capability we lack → flag for **stack-scout** to find one, or note the gap.
 
-Log selections so the catalog learns: `catalog_cli.py log <id> --actor <you> --context gsd:plan-phase --project <name> --outcome adopted`.
+Log selections so the catalog learns: `python3 ~/Work/Github/claude-stack/catalog_cli.py log <id> --actor <you> --context gsd:plan-phase --project <name> --outcome adopted`.
 (Catalog unreachable / offline → skip this step, continue.)
 
 ## 6. Check Existing Plans

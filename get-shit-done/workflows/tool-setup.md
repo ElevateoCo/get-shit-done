@@ -15,7 +15,7 @@ Resolve model for: `gsd-phase-researcher` (reused for tool research).
 ## Step 1: Load project context
 
 ```bash
-INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init project-op)
+INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init phase-op "")
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 # Extract: requirements_path, project_path (PROJECT.md), state_path, planning_dir
 ```
@@ -132,7 +132,7 @@ If any REQUIRED service is FAIL → stop and report. `/gsd:execute-phase` should
 
 Update project state:
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state set tool-setup-complete true 2>/dev/null || true
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state update tool-setup-complete true 2>/dev/null || true
 ```
 
 Report a concise summary: resolved-without-user / wired-now / awaiting-user / manual-deferred, and the verification table.
