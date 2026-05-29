@@ -48,6 +48,7 @@ Parse current values (default to `true` if not present):
 - `workflow.code_review` — enable /gsd:code-review and /gsd:code-review --fix commands (default: true if absent)
 - `workflow.code_review_depth` — default depth for /gsd:code-review: `quick`, `standard`, or `deep` (default: `"standard"` if absent; only relevant when `code_review` is on)
 - `workflow.ui_review` — run visual quality audit (/gsd:ui-review) in autonomous mode (default: true if absent)
+- `workflow.gate_analysis` — pre-compute human-only tasks (API keys, OAuth, DNS, approvals) into HUMAN-GATES.md during plan-phase (default: true if absent); set to false to skip gate analysis for fully-automated projects
 - `commit_docs` — whether `.planning/` files are committed to git (default: true if absent)
 - `intel.enabled` — enable queryable codebase intelligence (/gsd:map-codebase --query) (default: false if absent)
 - `graphify.enabled` — enable project knowledge graph (/gsd:graphify) (default: false if absent)

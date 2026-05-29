@@ -759,6 +759,100 @@ Returns compact JSON (id, kind, domains, what_it_is, when_to_use, uses, wins, si
 Log selections so the catalog learns: `python3 ~/Work/Github/claude-stack/catalog_cli.py log <id> --actor <you> --context gsd:plan-phase --project <name> --outcome adopted`.
 (Catalog unreachable / offline → skip this step, continue.)
 
+## 5.9. Human-Gate Analysis — pre-compute human-only tasks
+
+**Skip if:** `--skip-research` flag is set (no CONTEXT.md available) OR `--gaps` flag is set (gap-closure planning reuses existing HUMAN-GATES.md) OR `RESEARCH_ONLY` is `true`.
+
+Read gate analysis config:
+
+```bash
+GATE_ANALYSIS_CFG=$(gsd-sdk query config-get workflow.gate_analysis 2>/dev/null || echo "true")
+```
+
+**If `GATE_ANALYSIS_CFG` is `false`:** Skip silently to step 6.
+
+**If `GATE_ANALYSIS_CFG` is `true` (default):**
+
+Check whether HUMAN-GATES.md already exists for this phase:
+
+```bash
+GATES_PATH="${PHASE_DIR}/${PADDED_PHASE}-HUMAN-GATES.md"
+GATES_EXISTS=$(test -f "$GATES_PATH" && echo "true" || echo "false")
+```
+
+**If `GATES_EXISTS` is `true`:** Use existing — display `Using existing Human Gate Map: ${GATES_PATH}` and skip to step 6. The analyzer does not overwrite gates already written for this phase (e.g., from a prior planning run).
+
+**If `GATES_EXISTS` is `false`:** Spawn gsd-gate-analyzer.
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► HUMAN GATE ANALYSIS PHASE {X}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Scanning for human-only tasks...
+```
+
+Gate analyzer prompt:
+
+```markdown
+<gate_analysis_context>
+**Phase:** {phase_number} — {phase_name}
+**Phase directory:** {phase_dir}
+**Padded phase:** {padded_phase}
+**Output path:** {phase_dir}/{padded_phase}-HUMAN-GATES.md
+
+<files_to_read>
+- {context_path} (USER DECISIONS from /gsd:discuss-phase, if exists)
+- {research_path} (Technical Research, if exists)
+- .planning/ROADMAP.md (Phase description and success criteria)
+- .planning/config.json (Config, if exists)
+</files_to_read>
+
+Scan for tasks that ONLY a human can perform (see heuristic catalog in your agent definition).
+Write HUMAN-GATES.md to the output path above.
+</gate_analysis_context>
+```
+
+```
+Agent(
+  prompt=gate_analysis_prompt,
+  subagent_type="gsd-gate-analyzer",
+  model="{researcher_model}",
+  description="Human Gate Analysis Phase {phase}"
+)
+```
+
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+
+**Handle gate analyzer return:**
+
+- **`## GATE ANALYSIS COMPLETE`:** Read the gates summary from the return. If `gates_total > 0`, display the gates summary so the user sees what human actions will be required. Commit the file:
+  ```bash
+  gsd-sdk query commit "docs(${PADDED_PHASE}): human gate map — ${gates_total} gate(s) identified" --files "${GATES_PATH}"
+  ```
+  Continue to step 6.
+
+- **Any other return or error:** Log warning `Gate analysis did not complete — continuing without HUMAN-GATES.md (non-blocking).` and continue to step 6. Gate analysis failure must never block planning.
+
+**Planner instruction (injected into step 8 planner prompt when HUMAN-GATES.md exists):**
+
+When `GATES_EXISTS` is `true` (either pre-existing or just written), add the following to the planner prompt in step 8:
+
+```markdown
+<human_gate_map>
+A HUMAN-GATES.md file exists for this phase at: {GATES_PATH}
+
+**READ THIS FILE BEFORE CREATING PLANS.**
+
+Do NOT create tasks for the human-only action ITSELF when it is already listed as GATE-* in HUMAN-GATES.md (e.g., do not create a task "create the Stripe API key" if GATE-01 covers it). Reference the gate ID instead (e.g., "Requires GATE-01 — see HUMAN-GATES.md").
+
+But DO still plan the automatable work that depends on the gate. Reference the gate as a dependency — never silently drop or skip the downstream tasks. For example, if GATE-01 is "create Stripe API key", you still plan "wire the Stripe key into config and add the checkout endpoint (depends on GATE-01)". The gate covers only the human hand; everything around it that a tool can do still belongs in a plan.
+
+This prevents duplicate effort and ensures human-required steps are surfaced to the user up front rather than discovered mid-wave — while keeping all automatable work in scope.
+</human_gate_map>
+```
+
 ## 6. Check Existing Plans
 
 ```bash
