@@ -1,6 +1,6 @@
 # GSD Agent Reference
 
-> Full role cards for 21 primary agents plus concise stubs for 17 advanced/specialized agents (38 shipped agents total). The `agents/` directory and [`docs/INVENTORY.md`](INVENTORY.md) are the authoritative roster; see [Architecture](ARCHITECTURE.md) for context.
+> Full role cards for 21 primary agents plus concise stubs for 20 advanced/specialized agents (41 shipped agents total). The `agents/` directory and [`docs/INVENTORY.md`](INVENTORY.md) are the authoritative roster; see [Architecture](ARCHITECTURE.md) for context.
 
 ---
 
@@ -10,7 +10,7 @@ GSD uses a multi-agent architecture where thin orchestrators (workflow files) sp
 
 ### Agent Categories
 
-> The table below covers the **21 primary agents** detailed in this section. Seventeen additional shipped agents (pattern-mapper, debug-session-manager, code-reviewer, code-fixer, ai-researcher, domain-researcher, eval-planner, eval-auditor, framework-selector, intel-updater, doc-classifier, doc-synthesizer, gate-analyzer, executor-security, executor-ui, executor-perf, executor-debug) have concise stubs in the [Advanced and Specialized Agents](#advanced-and-specialized-agents) section below. For the authoritative 38-agent roster, see [`docs/INVENTORY.md`](INVENTORY.md) and the `agents/` directory.
+> The table below covers the **21 primary agents** detailed in this section. Twenty additional shipped agents (pattern-mapper, debug-session-manager, code-reviewer, code-fixer, ai-researcher, domain-researcher, eval-planner, eval-auditor, framework-selector, intel-updater, doc-classifier, doc-synthesizer, gate-analyzer, executor-security, executor-ui, executor-perf, executor-debug, ecc-security-reviewer, ecc-code-reviewer, ecc-tdd-guide — last three prefixed `gsd-ecc-*`) have concise stubs in the [Advanced and Specialized Agents](#advanced-and-specialized-agents) section below. For the authoritative 41-agent roster, see [`docs/INVENTORY.md`](INVENTORY.md) and the `agents/` directory.
 
 | Category | Count | Agents |
 |----------|-------|--------|
@@ -780,9 +780,51 @@ Twelve additional agents ship under `agents/gsd-*.md` and are used by specialty 
 
 ---
 
+### ecc-security-reviewer
+
+**Role:** Proactive OWASP/secrets/injection NEW-vulnerability discovery. Hunts attack surfaces that the project's threat model never acknowledged. Complements `gsd-security-auditor` (which verifies declared mitigations) by finding entirely new gaps. Read-only; produces a structured security report with CRITICAL/HIGH/MEDIUM/LOW findings.
+
+| Property | Value |
+|----------|-------|
+| **Spawned by** | standalone / `/gsd-code-review` |
+| **Tools** | Read, Grep, Glob, Bash (grep/scan only) |
+| **Model (balanced)** | Inherits from orchestrator |
+| **Color** | `#EF4444` (red) |
+| **Produces** | Security report with OWASP-classified findings |
+
+---
+
+### ecc-code-reviewer
+
+**Role:** ECC-adapted code reviewer with **Pre-Report Gate** — only emits findings where confidence is >80% and all four gate questions pass (exact line, concrete failure mode, surrounding context read, defensible severity). Zero-finding APPROVE is a valid and expected outcome. Complements `gsd-code-reviewer` with stricter false-positive filtering.
+
+| Property | Value |
+|----------|-------|
+| **Spawned by** | standalone / `/gsd-code-review` |
+| **Tools** | Read, Grep, Glob, Bash (git diff / grep only) |
+| **Model (balanced)** | Inherits from orchestrator |
+| **Color** | `#F59E0B` (amber) |
+| **Produces** | Review report with Pre-Report-Gate-filtered findings + APPROVE/WARNING/BLOCK verdict |
+
+---
+
+### ecc-tdd-guide
+
+**Role:** ECC-adapted TDD enforcement agent. Audits whether red-green-refactor discipline was followed, identifies coverage gaps (80%+ threshold), generates concrete test stubs, and applies eval-driven development checks for AI/LLM code paths.
+
+| Property | Value |
+|----------|-------|
+| **Spawned by** | standalone / `/gsd-add-tests` |
+| **Tools** | Read, Grep, Glob, Bash (test runner + find/grep) |
+| **Model (balanced)** | Inherits from orchestrator |
+| **Color** | `#10B981` (emerald) |
+| **Produces** | TDD gap report with coverage analysis, anti-pattern findings, and concrete test stubs |
+
+---
+
 ## Agent Tool Permissions Summary
 
-> **Scope:** this table covers the 21 primary agents only. The 16 advanced/specialized agents listed above carry their own tool surfaces in their `agents/gsd-*.md` frontmatter (summarized in the per-agent stubs above and in [`docs/INVENTORY.md`](INVENTORY.md)).
+> **Scope:** this table covers the 21 primary agents only. The 20 advanced/specialized agents listed above carry their own tool surfaces in their `agents/gsd-*.md` and `agents/ecc-*.md` frontmatter (summarized in the per-agent stubs above and in [`docs/INVENTORY.md`](INVENTORY.md)).
 
 | Agent | Read | Write | Edit | Bash | Grep | Glob | WebSearch | WebFetch | MCP |
 |-------|------|-------|------|------|------|------|-----------|----------|-----|
