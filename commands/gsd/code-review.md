@@ -1,7 +1,7 @@
 ---
 name: gsd:code-review
 description: Review source files changed during a phase for bugs, security issues, and code quality problems
-argument-hint: "<phase-number> [--depth=quick|standard|deep] [--files file1,file2,...] [--fix [--all] [--auto]]"
+argument-hint: "<phase-number> [--depth=quick|standard|deep] [--files file1,file2,...] [--fix [--all] [--auto]] [--loop [--all]]"
 allowed-tools:
   - Read
   - Bash
@@ -26,6 +26,10 @@ Arguments:
 - `--fix` (optional) — after review completes (or if REVIEW.md already exists), auto-apply fixes found. Spawns gsd-code-fixer agent. Accepts sub-flags:
   - `--all` — include Info findings in fix scope (default: Critical + Warning only)
   - `--auto` — enable fix + re-review iteration loop, capped at 3 iterations
+- `--loop` (optional) — run the full request→receive→address→re-review loop using BOTH gsd-code-reviewer AND gsd-ecc-code-reviewer. Mirrors the superpowers requesting-code-review / receiving-code-review discipline. Optional and non-blocking: never prevents phase completion. Accepts sub-flag:
+  - `--all` — include Info findings in fix scope (default: Critical + Warning only)
+  - Rounds capped at 3 (configurable via `workflow.code_review_loop_max_rounds` config key)
+  - Output: {padded_phase}-REVIEW-LOOP.md outcome record
 
 Output: {padded_phase}-REVIEW.md in phase directory + inline summary of findings
 </objective>
@@ -40,12 +44,17 @@ Phase: $ARGUMENTS (first positional argument is phase number)
 Optional flags parsed from $ARGUMENTS:
 - `--depth=VALUE` — Depth override (quick|standard|deep). If provided, overrides workflow.code_review_depth config.
 - `--files=file1,file2,...` — Explicit file list override. Has highest precedence for file scoping per D-08. When provided, workflow skips SUMMARY.md extraction and git diff fallback entirely.
+- `--loop` — When present, delegate to the code-review-loop.md workflow instead of the standard code-review.md workflow. This activates the dual-reviewer (gsd-code-reviewer + gsd-ecc-code-reviewer) request→receive→address→re-review loop.
 
 Context files (CLAUDE.md, SUMMARY.md, phase state) are resolved inside the workflow via `gsd-sdk query init.phase-op` and delegated to agent via `<files_to_read>` blocks.
 </context>
 
 <process>
 This command is a thin dispatch layer. It parses arguments and delegates to the workflow.
+
+**Flag routing:**
+- If `--loop` is present in $ARGUMENTS: load and execute `~/.claude/get-shit-done/workflows/code-review-loop.md` instead of the standard `code-review.md` workflow. Forward all other flags (--depth, --files, --all) to the loop workflow.
+- Otherwise: execute standard workflow below.
 
 Execute end-to-end.
 
@@ -54,6 +63,6 @@ The workflow (not this command) enforces these gates:
 - Config gate check (workflow.code_review)
 - File scoping (--files override > SUMMARY.md > git diff fallback)
 - Empty scope check (skip if no files)
-- Agent spawning (gsd-code-reviewer)
+- Agent spawning (gsd-code-reviewer; or both gsd-code-reviewer + gsd-ecc-code-reviewer when --loop)
 - Result presentation (inline summary + next steps)
 </process>
