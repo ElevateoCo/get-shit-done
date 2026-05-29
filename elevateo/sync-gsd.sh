@@ -83,9 +83,12 @@ if [ "$DO_BACKUP" = 1 ]; then
   BACKUP_DIR="$CLAUDE_DIR/.gsd-backups/$STAMP"
   log "backing up current GSD install → $BACKUP_DIR"
   run mkdir -p "$BACKUP_DIR"
-  # back up everything the installer may overwrite: the runtime, the gsd commands, the gsd skills.
-  for SRC in "$CLAUDE_DIR/get-shit-done" "$CLAUDE_DIR/commands/gsd"; do
-    [ -e "$SRC" ] && run cp -R "$SRC" "$BACKUP_DIR/" || true
+  # back up everything the installer may overwrite: the runtime, the gsd commands, the gsd skills,
+  # settings.json and hooks (both mutated by the installer).
+  for SRC in "$CLAUDE_DIR/get-shit-done" "$CLAUDE_DIR/commands/gsd" "$CLAUDE_DIR/settings.json" "$CLAUDE_DIR/hooks"; do
+    if [ -e "$SRC" ]; then
+      run cp -R "$SRC" "$BACKUP_DIR/" || warn "backup of $SRC failed"
+    fi
   done
   if [ "$DRY_RUN" = 1 ]; then
     printf '  [dry-run] cp -R %s/skills/source-command-gsd-* %s/skills-gsd/\n' "$CLAUDE_DIR" "$BACKUP_DIR"
