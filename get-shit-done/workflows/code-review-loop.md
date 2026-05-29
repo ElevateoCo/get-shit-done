@@ -322,10 +322,13 @@ while [ $ROUND -lt $MAX_ROUNDS ] && [ "${MERGED_STATUS}" != "clean" ]; do
   echo "  Round ${ROUND}/${MAX_ROUNDS} — re-reviewing..."
   echo "═══════════════════════════════════════════════════════════════"
   
-  # Backup iteration artifacts
+  # Backup iteration artifacts, then reset so each round writes a fresh file
   cp "${REVIEW_PATH}" "${REVIEW_PATH%.md}.iter${ROUND}.md" 2>/dev/null || true
   [ -f "${ECC_REVIEW_PATH}" ] && cp "${ECC_REVIEW_PATH}" "${ECC_REVIEW_PATH%.md}.iter${ROUND}.md" 2>/dev/null || true
-  
+  # Truncate review files — round-N reviewer writes its own findings only
+  printf "# Review — Round %s\n" "${ROUND}" > "${REVIEW_PATH}"
+  printf "# ECC Review — Round %s\n" "${ROUND}" > "${ECC_REVIEW_PATH}"
+
   # Build files config for re-review
   FILES_CONFIG=""
   if [ ${#REVIEW_FILES[@]} -gt 0 ]; then
@@ -447,6 +450,13 @@ if [ "${MERGED_STATUS}" != "clean" ]; then
   OUTCOME_LABEL="ISSUES_REMAIN"
 fi
 
+# Compute next-steps sentence in bash (avoids JS ternary on shell-expanded value)
+if [ "${OUTCOME_LABEL}" = "APPROVED" ]; then
+  NEXT_STEPS="Both reviewers approved — phase may proceed."
+else
+  NEXT_STEPS="Issues remain after ${ROUND} rounds — review ${REVIEW_PATH} and address manually."
+fi
+
 # Write outcome record
 node -e "
 const fs = require('fs');
@@ -483,7 +493,7 @@ const content = [
   '',
   '## Next steps',
   '',
-  '${OUTCOME_LABEL === \"APPROVED\" ? \"Both reviewers approved. Phase is ready to proceed.\" : \"Issues remain after ' + '${ROUND}' + ' rounds. Review REVIEW.md for outstanding findings. Phase completion is NOT blocked — address or justify remaining items as tech debt.\"}',
+  '${NEXT_STEPS}',
 ].join(\"\n\");
 fs.writeFileSync('${LOOP_REPORT_PATH}', content);
 " 2>/dev/null
