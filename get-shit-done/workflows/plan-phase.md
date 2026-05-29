@@ -845,9 +845,11 @@ A HUMAN-GATES.md file exists for this phase at: {GATES_PATH}
 
 **READ THIS FILE BEFORE CREATING PLANS.**
 
-Do NOT create tasks for items already listed as GATE-* in HUMAN-GATES.md.
-Reference the gate ID instead (e.g., "Requires GATE-01 — see HUMAN-GATES.md").
-This prevents duplicate effort and ensures human-required steps are surfaced to the user up front rather than discovered mid-wave.
+Do NOT create tasks for the human-only action ITSELF when it is already listed as GATE-* in HUMAN-GATES.md (e.g., do not create a task "create the Stripe API key" if GATE-01 covers it). Reference the gate ID instead (e.g., "Requires GATE-01 — see HUMAN-GATES.md").
+
+But DO still plan the automatable work that depends on the gate. Reference the gate as a dependency — never silently drop or skip the downstream tasks. For example, if GATE-01 is "create Stripe API key", you still plan "wire the Stripe key into config and add the checkout endpoint (depends on GATE-01)". The gate covers only the human hand; everything around it that a tool can do still belongs in a plan.
+
+This prevents duplicate effort and ensures human-required steps are surfaced to the user up front rather than discovered mid-wave — while keeping all automatable work in scope.
 </human_gate_map>
 ```
 

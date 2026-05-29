@@ -1718,7 +1718,22 @@ Type each gate ID when done (e.g., gate-03-done) or type
 
 For each `gate-XX-done` the user types: replace `- [ ] GATE-XX` with `- [x] GATE-XX` in HUMAN-GATES.md and confirm. When all post-execution gates are checked, proceed to `update_roadmap`.
 
-**If user types `"skip-post-gates"`:** Display warning and proceed to `update_roadmap`.
+**If user types `"skip-post-gates"`:** This is an explicit user override of the mandatory post-execution sign-off — it MUST be logged, not silently completed. Display the warning, write an audit note, then proceed to `update_roadmap`:
+
+```
+⚠ OVERRIDE: {UNCHECKED_POST} post-execution gate(s) skipped by user (skip-post-gates).
+  Phase {N} will be marked complete WITHOUT sign-off on these gates.
+```
+
+Append an audit entry to STATE.md recording the override (which gates, by whom, when) so the skip is traceable and not a silent normal completion:
+
+```bash
+gsd-sdk query state-append "## Override Log
+
+- $(date -u +%Y-%m-%dT%H:%M:%SZ) — Phase ${PHASE_NUMBER}: ${UNCHECKED_POST} post-execution human gate(s) SKIPPED via \`skip-post-gates\` user override. Unchecked gates remain unsigned in ${PADDED_PHASE}-HUMAN-GATES.md. Phase marked complete without sign-off."
+```
+
+(If `state-append` is unavailable in the SDK, append the same block directly to `.planning/STATE.md` under an `## Override Log` heading.) Then proceed to `update_roadmap`. The unchecked `- [ ]` GATE-* lines are left intact in HUMAN-GATES.md as the permanent record of what was skipped.
 </step>
 
 <step name="update_roadmap">

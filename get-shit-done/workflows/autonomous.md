@@ -315,9 +315,11 @@ Verify UI-SPEC was created:
 UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
 ```
 
-**If `UI_SPEC_FILE` is still empty after ui-phase:** Display warning `Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract.` and proceed to 3b.
+**If `UI_SPEC_FILE` is still empty after ui-phase:** Display warning `Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract.` and proceed to 3a.7.
 
-**If `HAS_UI` is 1 (no frontend indicators) OR `UI_SPEC_FILE` is not empty (UI-SPEC already exists) OR `UI_PHASE_CFG` is `false`:** Skip silently to 3b.
+**If `HAS_UI` is 1 (no frontend indicators) OR `UI_SPEC_FILE` is not empty (UI-SPEC already exists) OR `UI_PHASE_CFG` is `false`:** Skip silently to 3a.7.
+
+> **Reachability:** The human gate check (3a.7) ALWAYS runs before 3b, regardless of whether this is a frontend phase. Both branches of 3a.5 — the frontend branch (after ui-phase completes or warns) and the non-frontend skip branch — fall through to 3a.7. 3a.7 itself then falls through to 3b. Do not jump from 3a.5 directly to 3b.
 
 **3a.7. Human Gate Check (Autonomous Pre-Phase)**
 

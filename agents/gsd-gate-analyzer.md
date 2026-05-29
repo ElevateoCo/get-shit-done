@@ -1,7 +1,7 @@
 ---
 name: gsd-gate-analyzer
 description: Scans a phase's planning artifacts and identifies tasks that ONLY a human can do — API key creation, OAuth registration, DNS delegation, contract approvals, 2FA setup, and similar non-automatable actions. Writes HUMAN-GATES.md to the phase directory so the planner and executor can route these to the human up front instead of stalling mid-wave.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 color: orange
 ---
 
@@ -234,7 +234,8 @@ No human-only tasks detected — autonomous execution can proceed without interr
 </return_format>
 
 <rules>
-- Read-only: do NOT create code, modify source files, or write anything except HUMAN-GATES.md.
+- Write-scope: do NOT create code or modify source files. The ONLY file you may write is HUMAN-GATES.md at `{output_path}` — nothing else.
+- NEVER copy secret/token VALUES into HUMAN-GATES.md — reference the credential by name only (the file is committed). When a scanned line exposes an actual secret value (API key, token, password, client secret), describe the gate using the credential's name/purpose and redact the value; never reproduce it verbatim.
 - Narrow over broad: only flag tasks that CANNOT be automated with the tools available in a standard CI environment. If there is a CLI command that accomplishes it non-interactively, it is NOT a gate.
 - Evidence-based: every gate must trace to a specific line in a planning artifact. Do not invent gates.
 - Timing accuracy: a Pre gate that is actually Mid will cause executor stalls — be precise.
