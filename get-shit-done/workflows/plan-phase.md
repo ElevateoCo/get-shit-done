@@ -741,6 +741,24 @@ Display: `Schema files detected ({SCHEMA_ORM}) — [BLOCKING] push task will be 
 
 **If no schema-relevant files detected:** Skip silently to step 6.
 
+## 5.8. Capability discovery (claude-stack) — surface what we already have
+
+Before planning, query the claude-stack catalog so the plan reuses existing skills/tools/agents/boilerplates instead of reinventing (the whole point of the Library: route, don't memorize). Run a semantic search on the phase goal:
+
+```bash
+python3 ~/Work/Github/claude-stack/catalog_cli.py search "<phase goal + key requirements>" -n 8 2>/dev/null
+# narrow by kind when relevant: --kind skill   (what do I already have?)   --kind boilerplate (start-from)   --kind mcp,tool
+```
+
+Returns compact JSON (id, kind, domains, what_it_is, when_to_use, uses, wins, similarity). Surface to the user + feed the planner:
+- **skills** → invoke during execution instead of hand-rolling
+- **boilerplates/templates** → start from these (don't scaffold from zero)
+- **tools/mcp/agents** → wire via `/gsd:tool-setup`
+- If nothing fits well (low similarity) and the phase needs a capability we lack → flag for **stack-scout** to find one, or note the gap.
+
+Log selections so the catalog learns: `python3 ~/Work/Github/claude-stack/catalog_cli.py log <id> --actor <you> --context gsd:plan-phase --project <name> --outcome adopted`.
+(Catalog unreachable / offline → skip this step, continue.)
+
 ## 6. Check Existing Plans
 
 ```bash
