@@ -77,7 +77,10 @@ export const meta = {
   ],
 }
 
-const projectDir = (args && args.projectDir) || '.'
+// Sanitize: projectDir is interpolated into agent prompts + paths — reject traversal/abs escapes.
+const _pd = (args && args.projectDir) || '.'
+if (/(^|\/)\.\.(\/|$)/.test(_pd)) throw new Error(`unsafe projectDir: ${_pd}`)
+const projectDir = _pd
 const planningDir = `${projectDir}/.planning/codebase`
 const focusFilter = (args && args.focus) || 'all'
 
