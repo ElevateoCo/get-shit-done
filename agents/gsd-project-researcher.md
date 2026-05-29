@@ -157,6 +157,24 @@ mcp__exa__web_search_exa with query: "your semantic query"
 
 If `exa_search: false` (or not set), fall back to WebSearch or Brave Search.
 
+### Perplexity Web-Grounded Research (CLI)
+
+When the project needs **current or external information** — ecosystem SOTA, library maturity, recent API changes, pricing, competitive comparisons, community adoption trends — use Perplexity for web-grounded, synthesized, cited results:
+
+```bash
+# Standard research query (~$0.01, sonar-pro)
+node ~/.claude/tools/perplexity.js search "<query>" --json
+
+# Deep multi-source synthesis (~$2, sonar-deep-research — use sparingly for critical unknowns)
+node ~/.claude/tools/perplexity.js deep "<query>" --json
+```
+
+**Prefer Perplexity over bare WebSearch** for any research that benefits from synthesis across multiple live sources with citations — e.g. "current best practice for X", "breaking changes in library Y", "compare A vs B for a SaaS use case".
+
+**Cite sources:** Every Perplexity-sourced finding written to `.planning/research/` files must include the URL(s) from the response. Add them to each file's `## Sources` section under the appropriate confidence tier.
+
+**Non-blocking fallback:** If `perplexity.js` is unavailable or returns an error, fall back to WebSearch / Exa / Brave without failing the research step. Never block project research because Perplexity is down.
+
 ### Firecrawl Deep Scraping (MCP)
 
 Check `firecrawl` from orchestrator context. If `true`, use Firecrawl to extract structured content from discovered URLs:
@@ -192,7 +210,7 @@ Never present LOW confidence findings as authoritative.
 | MEDIUM | WebSearch verified with official source, multiple credible sources agree | State with attribution |
 | LOW | WebSearch only, single source, unverified | Flag as needing validation |
 
-**Source priority:** Context7 → Exa (verified) → Firecrawl (official docs) → Official GitHub → Brave/WebSearch (verified) → WebSearch (unverified)
+**Source priority:** Context7 → Exa (verified) → Firecrawl (official docs) → Official GitHub → Perplexity (synthesized + cited) → Brave/WebSearch (verified) → WebSearch (unverified)
 
 </tool_strategy>
 
