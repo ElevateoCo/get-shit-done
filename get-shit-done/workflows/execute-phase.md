@@ -1936,8 +1936,10 @@ fi
 
 if [ "$GH_TRACKING" = "true" ]; then
   GH_CFG_FILE=".planning/GITHUB.json"
+  GH_LABEL_PLAN="gsd:plan"
   GH_REPO_FLAG=""
   if [ -f "$GH_CFG_FILE" ] && command -v node >/dev/null 2>&1; then
+    GH_LABEL_PLAN=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.labels&&c.labels.plan||'gsd:plan')}catch(e){process.stdout.write('gsd:plan')}" 2>/dev/null || echo "gsd:plan")
     GH_REPO_SLUG=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.repo||'')}catch(e){process.stdout.write('')}" 2>/dev/null || true)
     [ -n "$GH_REPO_SLUG" ] && GH_REPO_FLAG="--repo $GH_REPO_SLUG"
   fi
@@ -1945,9 +1947,9 @@ if [ "$GH_TRACKING" = "true" ]; then
   # Resolve phase issue number from STATE.md
   GH_PHASE_ISSUE=$(grep -m1 "Phase ${PHASE_NUMBER} issue: #" .planning/STATE.md 2>/dev/null | grep -oE '#[0-9]+' | tr -d '#' || true)
 
-  # Mark all draft PRs on the phase branch as ready for review
+  # Mark GSD-created plan PRs on the phase branch as ready for review (scoped to gsd:plan label to avoid promoting manually-opened PRs)
   if [ -n "${BRANCH_NAME:-}" ]; then
-    gh pr list $GH_REPO_FLAG --head "$BRANCH_NAME" --json number --jq '.[].number' 2>/dev/null | while read -r PR_NUM; do
+    gh pr list $GH_REPO_FLAG --head "$BRANCH_NAME" --label "$GH_LABEL_PLAN" --json number --jq '.[].number' 2>/dev/null | while read -r PR_NUM; do
       [ -z "$PR_NUM" ] && continue
       gh pr ready "$PR_NUM" $GH_REPO_FLAG 2>/dev/null \
         && echo "◆ github_tracking: marked PR #${PR_NUM} ready for review" \

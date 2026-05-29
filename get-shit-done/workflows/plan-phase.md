@@ -1764,36 +1764,43 @@ fi
 ### 2. Load per-project tracking config (optional)
 
 ```bash
-GH_CFG_FILE=".planning/GITHUB.json"
-GH_LABEL_PHASE="gsd:phase"
-GH_REPO_FLAG=""
-if [ -f "$GH_CFG_FILE" ] && command -v node >/dev/null 2>&1; then
-  GH_LABEL_PHASE=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.labels&&c.labels.phase||'gsd:phase')}catch(e){process.stdout.write('gsd:phase')}" 2>/dev/null || echo "gsd:phase")
-  GH_REPO_SLUG=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.repo||'')}catch(e){process.stdout.write('')}" 2>/dev/null || true)
-  [ -n "$GH_REPO_SLUG" ] && GH_REPO_FLAG="--repo $GH_REPO_SLUG"
+if [ "$GH_TRACKING" = "true" ]; then
+  GH_CFG_FILE=".planning/GITHUB.json"
+  GH_LABEL_PHASE="gsd:phase"
+  GH_LABEL_PHASE_N="gsd:phase-${PHASE_NUMBER}"
+  GH_REPO_FLAG=""
+  if [ -f "$GH_CFG_FILE" ] && command -v node >/dev/null 2>&1; then
+    GH_LABEL_PHASE=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.labels&&c.labels.phase||'gsd:phase')}catch(e){process.stdout.write('gsd:phase')}" 2>/dev/null || echo "gsd:phase")
+    GH_REPO_SLUG=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.repo||'')}catch(e){process.stdout.write('')}" 2>/dev/null || true)
+    [ -n "$GH_REPO_SLUG" ] && GH_REPO_FLAG="--repo $GH_REPO_SLUG"
+  fi
+  GH_LABEL_PHASE_N="${GH_LABEL_PHASE}-${PHASE_NUMBER}"
 fi
 ```
 
 ### 3. Idempotency check — skip if issue already exists for this phase
 
-```bash
-EXISTING_ISSUE=$(gh issue list $GH_REPO_FLAG --label "$GH_LABEL_PHASE" --search "Phase ${PHASE_NUMBER}:" --json number --jq '.[0].number' 2>/dev/null || true)
-```
-
-**If `EXISTING_ISSUE` is non-empty:** An issue already exists for this phase. Record the number and skip creation:
+Uses the per-phase label `gsd:phase-N` (e.g., `gsd:phase-1`) for an exact-match lookup — avoids full-text false positives where "Phase 1:" matches "Phase 10:", "Phase 11:", etc.
 
 ```bash
-if [ -n "$EXISTING_ISSUE" ]; then
-  GH_PHASE_ISSUE="$EXISTING_ISSUE"
-  echo "◆ github_tracking: issue #${GH_PHASE_ISSUE} already exists for Phase ${PHASE_NUMBER} — reusing"
+if [ "$GH_TRACKING" = "true" ]; then
+  EXISTING_ISSUE=$(gh issue list $GH_REPO_FLAG --label "$GH_LABEL_PHASE_N" --json number,title --jq \
+    "[.[] | select(.title == \"Phase ${PHASE_NUMBER}: ${PHASE_NAME}\")] | .[0].number" \
+    2>/dev/null || true)
+
+  if [ -n "$EXISTING_ISSUE" ] && [ "$EXISTING_ISSUE" != "null" ]; then
+    GH_PHASE_ISSUE="$EXISTING_ISSUE"
+    echo "◆ github_tracking: issue #${GH_PHASE_ISSUE} already exists for Phase ${PHASE_NUMBER} — reusing"
+  fi
 fi
 ```
 
-### 4. Ensure label exists (non-blocking)
+### 4. Ensure labels exist (non-blocking)
 
 ```bash
 if [ "$GH_TRACKING" = "true" ] && [ -z "${GH_PHASE_ISSUE:-}" ]; then
   gh label create "$GH_LABEL_PHASE" --color "0075ca" --description "GSD phase tracking" $GH_REPO_FLAG 2>/dev/null || true
+  gh label create "$GH_LABEL_PHASE_N" --color "0075ca" --description "GSD phase ${PHASE_NUMBER} tracking" $GH_REPO_FLAG 2>/dev/null || true
 fi
 ```
 
@@ -1820,6 +1827,7 @@ ${PLAN_LIST}
     --title "Phase ${PHASE_NUMBER}: ${PHASE_NAME}" \
     --body "$ISSUE_BODY" \
     --label "$GH_LABEL_PHASE" \
+    --label "$GH_LABEL_PHASE_N" \
     $GH_REPO_FLAG \
     --json number --jq '.number' 2>/dev/null || true)
 
