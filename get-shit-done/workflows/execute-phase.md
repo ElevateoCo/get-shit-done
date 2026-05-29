@@ -994,6 +994,16 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    If ANY spot-check fails: report which plan failed, route to failure handler — ask "Retry plan?" or "Continue with remaining waves?"
 
+   **Verification gate (before claiming wave done)**
+
+   Do NOT mark a wave complete on spot-check alone. Before emitting the "Wave N Complete" block, confirm each plan in the wave meets its acceptance criteria:
+   - Run the plan's verification commands / tests / build (the actual commands, not a description).
+   - Observe real output; a plan is "done" only when its acceptance criteria are demonstrably met.
+   - If verification cannot run (missing dep, needs a human action), mark the plan BLOCKED, not done.
+   - Apply the `verification-before-completion` discipline: claims of completion require observed evidence.
+
+   Record the verification evidence (commands run + result) in each plan's SUMMARY.md before closing the wave.
+
    If pass:
    ```
    ---
@@ -1579,6 +1589,19 @@ Also: `/gsd:verify-work {X} ${GSD_WS}` — manual testing first
 ```
 
 Gap closure cycle: `/gsd:plan-phase {X} --gaps ${GSD_WS}` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/gsd:execute-phase {X} --gaps-only ${GSD_WS}` → verifier re-runs.
+</step>
+
+<step name="verification_gate_before_completion" required="true">
+**Mandatory verification gate — do NOT skip, do NOT self-assess.**
+
+Before marking this phase complete in ROADMAP.md or STATE.md, the orchestrator MUST confirm that real verification ran:
+
+- The `verify_phase_goal` step above must have returned `status: passed` (not assumed or inferred) — check the VERIFICATION.md frontmatter.
+- At minimum one verification command (build, test suite, or equivalent) must have been executed and its output observed.
+- If verification was skipped or inconclusive, do NOT proceed to `update_roadmap`. Instead, surface the gap and stop.
+- If verification cannot run (missing environment, human action required), mark the phase BLOCKED, not complete.
+
+Apply the `verification-before-completion` discipline: the roadmap is updated only when completion is backed by evidence, not by self-assessment.
 </step>
 
 <step name="update_roadmap">

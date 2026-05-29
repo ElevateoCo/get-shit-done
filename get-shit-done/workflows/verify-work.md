@@ -396,6 +396,16 @@ Proceed to `present_test`.
 <step name="complete_session">
 **Complete testing and commit:**
 
+**Verification gate (before signing off)**
+
+Do NOT report UAT complete or advance to the next phase on self-assessment. Before computing the final status:
+- Every test result must come from an actual user observation or an automated check — not from assuming behavior is correct.
+- A test is "passed" only when the expected behavior was demonstrably observed; "assumed pass" is not a valid result.
+- If any test could not be run (environment unavailable, blocked dependency), mark it `blocked`, not `pass`.
+- Apply the `verification-before-completion` discipline: phase sign-off requires observed evidence across all acceptance criteria.
+
+Record a verification evidence note (which tests were run, how, and what was observed) before committing the UAT file.
+
 **Determine final status:**
 
 Count results:
