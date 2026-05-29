@@ -139,6 +139,8 @@ Before spawning agents, detect whether the current runtime supports the `Agent` 
 <step name="spawn_agents" condition="Agent tool is available">
 Spawn 4 parallel gsd-codebase-mapper agents.
 
+**Fan-out discipline:** The 4 mapper agents are fully independent — each writes to a distinct set of output files with no cross-agent ordering constraint. Apply the **`superpowers:dispatching-parallel-agents`** discipline: dispatch all agents concurrently (`run_in_background=true`), then barrier at `collect_confirmations`. This skill is an installed superpowers skill — reference it rather than re-implementing its guidance here.
+
 Use Agent tool with `subagent_type="gsd-codebase-mapper"`, `model="{mapper_model}"`, and `run_in_background=true` for parallel execution.
 
 **CRITICAL:** Use the dedicated `gsd-codebase-mapper` agent, NOT `Explore` or `browser_subagent`. The mapper agent writes documents directly.
