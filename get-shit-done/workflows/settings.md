@@ -49,6 +49,7 @@ Parse current values (default to `true` if not present):
 - `workflow.code_review_depth` — default depth for /gsd:code-review: `quick`, `standard`, or `deep` (default: `"standard"` if absent; only relevant when `code_review` is on)
 - `workflow.ui_review` — run visual quality audit (/gsd:ui-review) in autonomous mode (default: true if absent)
 - `workflow.gate_analysis` — pre-compute human-only tasks (API keys, OAuth, DNS, approvals) into HUMAN-GATES.md during plan-phase (default: true if absent); set to false to skip gate analysis for fully-automated projects
+- `workflow.github_tracking` — create a GitHub issue per phase (plan-phase) and a draft PR per plan (execute-phase), linked and labeled; mark PR ready + close issue on phase completion (default: **false** — opt-in only; zero behavior change when off). Requires `gh` CLI and a GitHub remote; silently skips if either is absent. Per-project labels and repo slug configurable in `.planning/GITHUB.json` (template at `get-shit-done/templates/GITHUB.json`).
 - `commit_docs` — whether `.planning/` files are committed to git (default: true if absent)
 - `intel.enabled` — enable queryable codebase intelligence (/gsd:map-codebase --query) (default: false if absent)
 - `graphify.enabled` — enable project knowledge graph (/gsd:graphify) (default: false if absent)

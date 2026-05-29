@@ -301,6 +301,107 @@ fi
 ```
 
 All subsequent commits go to this branch. User handles merging.
+
+**GitHub Tracking — Draft PRs per plan (opt-in):**
+
+```bash
+GH_TRACKING=$(gsd-sdk query config-get workflow.github_tracking 2>/dev/null || echo "false")
+```
+
+**If `GH_TRACKING` is not `true`:** Skip this block entirely.
+
+**If `GH_TRACKING` is `true` AND `branching_strategy` is `"none"`:** Skip — draft PRs require a feature branch. Log: `◆ github_tracking: branching_strategy=none — skipping draft PR creation (PRs require a branch)`.
+
+**If `GH_TRACKING` is `true` AND `BRANCH_NAME` is set:** Attempt to create a draft PR for each incomplete plan. All `gh` operations are non-blocking — failures log a warning and continue.
+
+```bash
+# Guard: require gh CLI and GitHub remote
+if ! command -v gh >/dev/null 2>&1; then
+  echo "⚠ github_tracking: gh CLI not found — skipping draft PR creation" >&2
+  GH_TRACKING="false"
+fi
+if [ "$GH_TRACKING" = "true" ]; then
+  GH_REMOTE=$(git remote get-url origin 2>/dev/null || true)
+  if ! echo "$GH_REMOTE" | grep -qE '(github\.com)'; then
+    echo "⚠ github_tracking: no GitHub remote detected — skipping draft PR creation" >&2
+    GH_TRACKING="false"
+  fi
+fi
+
+if [ "$GH_TRACKING" = "true" ]; then
+  # Load per-project config
+  GH_CFG_FILE=".planning/GITHUB.json"
+  GH_LABEL_PLAN="gsd:plan"
+  GH_REPO_FLAG=""
+  GH_DRAFT_PRS="true"
+  if [ -f "$GH_CFG_FILE" ] && command -v node >/dev/null 2>&1; then
+    GH_LABEL_PLAN=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.labels&&c.labels.plan||'gsd:plan')}catch(e){process.stdout.write('gsd:plan')}" 2>/dev/null || echo "gsd:plan")
+    GH_REPO_SLUG=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.repo||'')}catch(e){process.stdout.write('')}" 2>/dev/null || true)
+    [ -n "$GH_REPO_SLUG" ] && GH_REPO_FLAG="--repo $GH_REPO_SLUG"
+    GH_DRAFT_PRS=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(String(c.draft_prs!==false))}catch(e){process.stdout.write('true')}" 2>/dev/null || echo "true")
+  fi
+
+  # Resolve phase issue number from STATE.md (recorded by plan-phase step 13e)
+  GH_PHASE_ISSUE=$(grep -m1 "Phase ${PHASE_NUMBER} issue: #" .planning/STATE.md 2>/dev/null | grep -oE '#[0-9]+' | tr -d '#' || true)
+
+  # Ensure plan label exists
+  gh label create "$GH_LABEL_PLAN" --color "e4e669" --description "GSD plan tracking" $GH_REPO_FLAG 2>/dev/null || true
+
+  # Push branch so gh can create PRs against it (non-fatal if push fails)
+  git push -u origin "$BRANCH_NAME" 2>/dev/null || true
+
+  # Create a draft PR per incomplete plan (idempotent — skip if PR already exists for branch+plan)
+  for PLAN_FILE in "${PHASE_DIR}"/*-PLAN.md; do
+    [ -f "$PLAN_FILE" ] || continue
+    PLAN_ID=$(basename "$PLAN_FILE" -PLAN.md)
+    PLAN_SUMMARY="${PLAN_FILE%-PLAN.md}-SUMMARY.md"
+    # Skip plans that already have a SUMMARY.md (already executed)
+    [ -f "$PLAN_SUMMARY" ] && continue
+
+    PLAN_OBJ=$(grep -m1 '<objective>' "$PLAN_FILE" | sed 's/.*<objective>//' | sed 's/<\/objective>.*//' | xargs 2>/dev/null || echo "$PLAN_ID")
+
+    # Idempotency: skip if a PR already exists for this plan on this branch
+    EXISTING_PR=$(gh pr list $GH_REPO_FLAG --head "$BRANCH_NAME" --search "$PLAN_ID" --json number --jq '.[0].number' 2>/dev/null || true)
+    if [ -n "$EXISTING_PR" ]; then
+      echo "◆ github_tracking: PR #${EXISTING_PR} already exists for plan ${PLAN_ID} — reusing"
+      continue
+    fi
+
+    # Build body with Closes/Refs link to phase issue
+    if [ -n "$GH_PHASE_ISSUE" ]; then
+      CLOSES_LINE="Refs #${GH_PHASE_ISSUE}"
+    else
+      CLOSES_LINE=""
+    fi
+
+    PR_BODY="## Plan ${PLAN_ID}: ${PLAN_OBJ}
+
+Phase ${PHASE_NUMBER}: ${PHASE_NAME}
+${CLOSES_LINE}
+
+---
+*Created by GSD github_tracking — roadmap #10*"
+
+    DRAFT_FLAG=""
+    [ "$GH_DRAFT_PRS" = "true" ] && DRAFT_FLAG="--draft"
+
+    PR_NUM=$(gh pr create \
+      --title "${PLAN_ID}: ${PLAN_OBJ}" \
+      --body "$PR_BODY" \
+      --label "$GH_LABEL_PLAN" \
+      --head "$BRANCH_NAME" \
+      $DRAFT_FLAG \
+      $GH_REPO_FLAG \
+      --json number --jq '.number' 2>/dev/null || true)
+
+    if [ -n "$PR_NUM" ]; then
+      echo "◆ github_tracking: created draft PR #${PR_NUM} for plan ${PLAN_ID}"
+    else
+      echo "⚠ github_tracking: draft PR creation failed for ${PLAN_ID} — continuing (non-blocking)" >&2
+    fi
+  done
+fi
+```
 </step>
 
 <step name="validate_phase">
@@ -1812,6 +1913,62 @@ These items are tracked and will appear in `/gsd:progress` and `/gsd:audit-uat`.
 
 ```bash
 gsd-sdk query commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md {phase_dir}/*-VERIFICATION.md
+```
+
+**GitHub Tracking — Mark PRs ready + close phase issue (opt-in):**
+
+```bash
+GH_TRACKING=$(gsd-sdk query config-get workflow.github_tracking 2>/dev/null || echo "false")
+```
+
+**If `GH_TRACKING` is not `true`:** Skip this block.
+
+**If `GH_TRACKING` is `true`:** Attempt to mark all draft PRs for this phase as ready for review and close the phase issue. All operations are non-blocking.
+
+```bash
+if [ "$GH_TRACKING" = "true" ]; then
+  # Guard: require gh CLI and GitHub remote
+  if ! command -v gh >/dev/null 2>&1 || ! git remote get-url origin 2>/dev/null | grep -qE '(github\.com)'; then
+    echo "⚠ github_tracking: gh CLI or GitHub remote unavailable — skipping PR/issue update" >&2
+    GH_TRACKING="false"
+  fi
+fi
+
+if [ "$GH_TRACKING" = "true" ]; then
+  GH_CFG_FILE=".planning/GITHUB.json"
+  GH_REPO_FLAG=""
+  if [ -f "$GH_CFG_FILE" ] && command -v node >/dev/null 2>&1; then
+    GH_REPO_SLUG=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$GH_CFG_FILE','utf8'));process.stdout.write(c.repo||'')}catch(e){process.stdout.write('')}" 2>/dev/null || true)
+    [ -n "$GH_REPO_SLUG" ] && GH_REPO_FLAG="--repo $GH_REPO_SLUG"
+  fi
+
+  # Resolve phase issue number from STATE.md
+  GH_PHASE_ISSUE=$(grep -m1 "Phase ${PHASE_NUMBER} issue: #" .planning/STATE.md 2>/dev/null | grep -oE '#[0-9]+' | tr -d '#' || true)
+
+  # Mark all draft PRs on the phase branch as ready for review
+  if [ -n "${BRANCH_NAME:-}" ]; then
+    gh pr list $GH_REPO_FLAG --head "$BRANCH_NAME" --json number --jq '.[].number' 2>/dev/null | while read -r PR_NUM; do
+      [ -z "$PR_NUM" ] && continue
+      gh pr ready "$PR_NUM" $GH_REPO_FLAG 2>/dev/null \
+        && echo "◆ github_tracking: marked PR #${PR_NUM} ready for review" \
+        || echo "⚠ github_tracking: could not mark PR #${PR_NUM} ready (non-blocking)" >&2
+      # Comment phase-complete status on each PR
+      gh pr comment "$PR_NUM" $GH_REPO_FLAG \
+        --body "Phase ${PHASE_NUMBER} (${PHASE_NAME}) completed and verified. ✓" \
+        2>/dev/null || true
+    done
+  fi
+
+  # Close the phase issue with a completion comment
+  if [ -n "$GH_PHASE_ISSUE" ]; then
+    gh issue comment "$GH_PHASE_ISSUE" $GH_REPO_FLAG \
+      --body "Phase ${PHASE_NUMBER} (${PHASE_NAME}) is complete. Verification passed. ✓" \
+      2>/dev/null || true
+    gh issue close "$GH_PHASE_ISSUE" $GH_REPO_FLAG 2>/dev/null \
+      && echo "◆ github_tracking: closed issue #${GH_PHASE_ISSUE} (Phase ${PHASE_NUMBER} complete)" \
+      || echo "⚠ github_tracking: could not close issue #${GH_PHASE_ISSUE} (non-blocking)" >&2
+  fi
+fi
 ```
 </step>
 

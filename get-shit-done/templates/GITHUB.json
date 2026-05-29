@@ -1,0 +1,8 @@
+{
+  "repo": "",
+  "labels": {
+    "phase": "gsd:phase",
+    "plan": "gsd:plan"
+  },
+  "draft_prs": true
+}
