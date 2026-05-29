@@ -599,6 +599,11 @@ CROSS_AI_TIMEOUT=$(gsd-sdk query config-get workflow.cross_ai_timeout 2>/dev/nul
 <step name="execute_waves">
 Execute each selected wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`, sequential if `false`.
 
+**Fan-out discipline for this step:**
+- When a wave has **multiple independent plans** (no shared `files_modified`, no cross-plan ordering constraint): apply the **`superpowers:dispatching-parallel-agents`** discipline — fan out concurrently, barrier only after all agents in the wave return.
+- When plans within a wave are **interdependent** (outputs of one feed inputs of another — indicated by overlapping `files_modified` or explicit plan ordering): apply the **`superpowers:subagent-driven-development`** discipline — sequential dispatch, pass context forward between agents.
+These skills are installed superpowers skills. Reference them rather than re-implementing their guidance here.
+
 **Stream-idle-timeout prevention — checkpoint heartbeats (#2410):**
 
 Multi-plan phases can accumulate enough subagent context that the Claude API
