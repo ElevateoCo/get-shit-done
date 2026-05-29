@@ -192,6 +192,24 @@ mcp__exa__web_search_exa with query: "your semantic query"
 
 If `exa_search: false` (or not set), fall back to WebSearch or Brave Search.
 
+### Perplexity Web-Grounded Research (CLI)
+
+When the phase needs **current or external information** — new library releases, API changes, breaking deprecations, best-practice shifts, pricing comparisons, ecosystem surveys — use Perplexity for web-grounded, synthesized, cited results:
+
+```bash
+# Standard research query (~$0.01, sonar-pro)
+node ~/.claude/tools/perplexity.js search "<query>" --json
+
+# Deep multi-source synthesis (~$2, sonar-deep-research — use sparingly for critical unknowns)
+node ~/.claude/tools/perplexity.js deep "<query>" --json
+```
+
+**Prefer Perplexity over bare WebSearch** for any research that benefits from synthesis across multiple live sources with citations — e.g. "current best practice for X in 2025", "breaking changes in library Y v3", "compare A vs B for use case Z".
+
+**Cite sources:** Every Perplexity-sourced finding in RESEARCH.md must include the URL(s) returned in the response. Add them to the `## Sources` section under the appropriate confidence tier.
+
+**Non-blocking fallback:** If `perplexity.js` is unavailable or returns an error, fall back to WebSearch / Exa / Brave without failing the research step. Never block phase research because Perplexity is down.
+
 ### Firecrawl Deep Scraping (MCP)
 
 Check `firecrawl` from init context. If `true`, use Firecrawl to extract structured content from URLs:
@@ -229,7 +247,7 @@ For each WebSearch finding:
 | MEDIUM | WebSearch verified with official source, multiple credible sources | State with attribution |
 | LOW | WebSearch only, single source, unverified | Flag as needing validation |
 
-Priority: Context7 > Exa (verified) > Firecrawl (official docs) > Official GitHub > Brave/WebSearch (verified) > WebSearch (unverified)
+Priority: Context7 > Exa (verified) > Firecrawl (official docs) > Official GitHub > Perplexity (synthesized + cited) > Brave/WebSearch (verified) > WebSearch (unverified)
 
 </source_hierarchy>
 
