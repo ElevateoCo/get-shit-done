@@ -1039,11 +1039,37 @@ ${MVP_MODE === 'true' ? `
 
 <downstream_consumer>
 Output consumed by /gsd:execute-phase. Plans need:
-- Frontmatter (wave, depends_on, files_modified, autonomous)
+- Frontmatter (wave, depends_on, files_modified, autonomous, executor_kind)
 - Tasks in XML format with read_first and acceptance_criteria fields (MANDATORY on every task)
 - Verification criteria
 - must_haves for goal-backward verification
 </downstream_consumer>
+
+<executor_kind_heuristic>
+Every PLAN.md frontmatter MUST include an `executor_kind` field. Choose the value using this heuristic (first match wins):
+
+| Signal in plan scope / phase goal | executor_kind |
+|---|---|
+| auth, payments, RLS, API keys, secrets, OWASP, input validation, OAuth, permission checks, CVE, CSRF, rate-limit on public routes | `security` |
+| components, styling, CSS, a11y, WCAG, design tokens, responsive, UI, frontend, React/Vue/Svelte templates, Tailwind, animations | `ui` |
+| queries, hot-path, N+1, indexes, bundle size, caching, pagination, memory leak, async bottleneck, Lighthouse, performance budget | `perf` |
+| bugfix, regression, repro, failing test, crash, stack trace, root cause, broken behavior | `debug` |
+| anything else | `default` |
+
+**When in doubt, use `default`.** The specialist executors add domain rigor on top of the base executor — they are never slower or less safe, but they are not needed for straightforward feature work.
+
+Example frontmatter:
+```yaml
+---
+phase: 3
+plan: "03-02"
+wave: 1
+executor_kind: security
+autonomous: true
+files_modified: [src/api/auth.ts, src/middleware/rls.ts]
+---
+```
+</executor_kind_heuristic>
 
 <deep_work_rules>
 ## Anti-Shallow Execution Rules (MANDATORY)

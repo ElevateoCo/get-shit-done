@@ -34,7 +34,11 @@ Read STATE.md before any operation to load project context.
 These are the valid GSD subagent types registered in .claude/agents/ (or equivalent for your runtime).
 Always use the exact name from this list — do not fall back to 'general-purpose' or other built-in types:
 
-- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md
+- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md (default)
+- gsd-executor-security — Security-specialist executor (OWASP/auth/secrets/input-validation lens)
+- gsd-executor-ui — UI/frontend-specialist executor (a11y/design-system/responsive lens)
+- gsd-executor-perf — Performance-specialist executor (hot-path/query/bundle/memory lens)
+- gsd-executor-debug — Debug-specialist executor (repro-first/root-cause/regression-test lens)
 - gsd-verifier — Verifies phase completion, checks quality gates
 - gsd-planner — Creates detailed plans from phase scope
 - gsd-phase-researcher — Researches technical approaches for a phase
@@ -607,6 +611,40 @@ increases monotonically across waves. `{status}` is `complete` (success),
    fi
    ```
 
+   **Specialist executor selection (per-plan, before dispatch):**
+
+   Read each plan's `executor_kind` from its YAML frontmatter:
+   ```bash
+   EXECUTOR_KIND=$(grep "^executor_kind:" "{plan_file}" | head -1 | sed 's/executor_kind:[[:space:]]*//' | tr -d '"' | xargs)
+   ```
+
+   Map `executor_kind` → `subagent_type` using this switch. Fall back to `gsd-executor` for
+   `default`, absent, empty, or any unrecognised value (back-compat: existing plans without
+   `executor_kind` are always routed to the base executor unchanged):
+
+   | executor_kind value | subagent_type |
+   |---|---|
+   | `security` | `gsd-executor-security` |
+   | `ui` | `gsd-executor-ui` |
+   | `perf` | `gsd-executor-perf` |
+   | `debug` | `gsd-executor-debug` |
+   | `default`, absent, empty, unknown | `gsd-executor` |
+
+   ```bash
+   case "${EXECUTOR_KIND}" in
+     security) EXECUTOR_AGENT="gsd-executor-security" ;;
+     ui)       EXECUTOR_AGENT="gsd-executor-ui" ;;
+     perf)     EXECUTOR_AGENT="gsd-executor-perf" ;;
+     debug)    EXECUTOR_AGENT="gsd-executor-debug" ;;
+     *)        EXECUTOR_AGENT="gsd-executor" ;;
+   esac
+   ```
+
+   Log the selection before dispatch:
+   ```
+   ◆ Plan {plan_id}: executor_kind={EXECUTOR_KIND:-default} → {EXECUTOR_AGENT}
+   ```
+
    **Sequential dispatch for parallel execution (waves with 2+ agents):**
    Dispatch each `Agent()` call **one at a time with `run_in_background: true`**. Do NOT
    send all Agent calls in a single message: simultaneous `git worktree add` calls race
@@ -619,7 +657,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    ```text
    Agent(
-     subagent_type="gsd-executor",
+     subagent_type="{EXECUTOR_AGENT}",
      description="Execute plan {plan_number} of phase {phase_number}",
      # Only include model= when executor_model is an explicit model name.
      # When executor_model is "inherit", omit this parameter entirely so
